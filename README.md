@@ -6,6 +6,8 @@ colorTo: purple
 sdk: docker
 app_port: 7860
 pinned: false
+models: 
+ - ACE-Step/Ace-Step1.5
 license: mit
 short_description: Music Generation Foundation Model v1.5
 ---
