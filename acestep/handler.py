@@ -199,6 +199,13 @@ class AceStepHandler:
 
         return model_path
 
+    def is_flash_attention_available(self) -> bool:
+        """Check if flash attention is available on the system"""
+        try:
+            import flash_attn
+            return True
+        except ImportError:
+            return False
 
     def is_flash_attn3_available(self) -> bool:
         """Check if flash-attn3 via kernels library is available"""
