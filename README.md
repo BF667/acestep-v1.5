@@ -7,6 +7,8 @@ sdk: gradio
 sdk_version: 6.2.0
 python_version: 3.11
 pinned: false
+models: 
+ - ACE-Step/Ace-Step1.5
 license: mit
 app_file: app.py
 short_description: Music Generation Foundation Model v1.5
