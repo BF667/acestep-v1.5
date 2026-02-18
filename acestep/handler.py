@@ -199,14 +199,24 @@ class AceStepHandler:
 
         return model_path
 
-    def is_flash_attention_available(self) -> bool:
-        """Check if flash attention is available on the system"""
+
+    def is_flash_attn3_available(self) -> bool:
+        """Check if flash-attn3 via kernels library is available"""
         try:
-            import flash_attn
+            import kernels
             return True
         except ImportError:
             return False
-    
+
+    def get_best_attn_implementation(self) -> str:
+        """Get the best available attention implementation"""
+        if self.is_flash_attn3_available():
+            return "kernels-community/flash-attn3"
+        elif self.is_flash_attention_available():
+            return "flash_attention_2"
+        else:
+            return "sdpa"
+
     def is_turbo_model(self) -> bool:
         """Check if the currently loaded model is a turbo model"""
         if self.config is None:
@@ -425,33 +435,38 @@ class AceStepHandler:
                 acestep_v15_checkpoint_path = self._ensure_model_downloaded(config_path, checkpoint_dir)
 
             if os.path.exists(acestep_v15_checkpoint_path):
-                # Determine attention implementation
-                if use_flash_attention and self.is_flash_attention_available():
-                    attn_implementation = "flash_attention_2"
+                # Determine attention implementation (prefer flash-attn3 > flash_attention_2 > sdpa)
+                if use_flash_attention:
+                    attn_implementation = self.get_best_attn_implementation()
                     self.dtype = torch.bfloat16
                 else:
                     attn_implementation = "sdpa"
 
-                try:
-                    logger.info(f"[initialize_service] Attempting to load model with attention implementation: {attn_implementation}")
-                    self.model = AutoModel.from_pretrained(
-                        acestep_v15_checkpoint_path, 
-                        trust_remote_code=True, 
-                        attn_implementation=attn_implementation,
-                        dtype="bfloat16"
-                    )
-                except Exception as e:
-                    logger.warning(f"[initialize_service] Failed to load model with {attn_implementation}: {e}")
-                    if attn_implementation == "sdpa":
-                        logger.info("[initialize_service] Falling back to eager attention")
-                        attn_implementation = "eager"
+                # Try loading with the best available attention implementation, with fallbacks
+                attn_fallback_order = [attn_implementation]
+                if attn_implementation == "kernels-community/flash-attn3":
+                    attn_fallback_order.extend(["flash_attention_2", "sdpa", "eager"])
+                elif attn_implementation == "flash_attention_2":
+                    attn_fallback_order.extend(["sdpa", "eager"])
+                elif attn_implementation == "sdpa":
+                    attn_fallback_order.append("eager")
+
+                for attn_impl in attn_fallback_order:
+                    try:
+                        logger.info(f"[initialize_service] Attempting to load model with attention implementation: {attn_impl}")
+
                         self.model = AutoModel.from_pretrained(
-                            acestep_v15_checkpoint_path, 
-                            trust_remote_code=True, 
-                            attn_implementation=attn_implementation
+                            acestep_v15_checkpoint_path,
+                            trust_remote_code=True,
+                            attn_implementation=attn_impl,
+                            dtype="bfloat16"
                         )
-                    else:
-                        raise e
+                        attn_implementation = attn_impl
+                        break
+                    except Exception as e:
+                        logger.warning(f"[initialize_service] Failed to load model with {attn_impl}: {e}")
+                        if attn_impl == attn_fallback_order[-1]:
+                            raise e
 
                 self.model.config._attn_implementation = attn_implementation
                 self.config = self.model.config
@@ -466,6 +481,8 @@ class AceStepHandler:
                     else:
                         self.model = self.model.to("cpu").to(self.dtype)
                 self.model.eval()
+                # Disable gradients for all parameters (required for ZeroGPU pickling)
+                self.model.requires_grad_(False)
                 
                 if compile_model:
                     self.model = torch.compile(self.model)
@@ -498,7 +515,8 @@ class AceStepHandler:
                         self.silence_latent = torch.load(silence_latent_path).transpose(1, 2)
                         # Always keep silence_latent on GPU - it's used in many places outside model context
                         # and is small enough that it won't significantly impact VRAM
-                        self.silence_latent = self.silence_latent.to(device).to(self.dtype)
+                        # Use detach() to ensure no gradients (required for ZeroGPU pickling)
+                        self.silence_latent = self.silence_latent.to(device).to(self.dtype).detach()
                     else:
                         raise FileNotFoundError(f"Silence latent not found at {silence_latent_path}")
             else:
@@ -519,6 +537,8 @@ class AceStepHandler:
                     else:
                         self.vae = self.vae.to("cpu").to(vae_dtype)
                     self.vae.eval()
+                    # Disable gradients for all parameters (required for ZeroGPU pickling)
+                    self.vae.requires_grad_(False)
                 else:
                     raise FileNotFoundError(f"VAE checkpoint not found at {vae_checkpoint_path}")
 
@@ -534,12 +554,31 @@ class AceStepHandler:
             else:
                 if os.path.exists(text_encoder_path):
                     self.text_tokenizer = AutoTokenizer.from_pretrained(text_encoder_path)
-                    self.text_encoder = AutoModel.from_pretrained(text_encoder_path)
+                    # Use best attention implementation for text encoder
+                    text_encoder_attn = self.get_best_attn_implementation()
+                    text_encoder_loaded = False
+                    for attn_impl in [text_encoder_attn, "flash_attention_2", "sdpa", "eager"]:
+                        try:
+                            self.text_encoder = AutoModel.from_pretrained(
+                                text_encoder_path,
+                                attn_implementation=attn_impl,
+                                torch_dtype=self.dtype,
+                            )
+                            logger.info(f"[initialize_service] Text encoder loaded with {attn_impl}")
+                            text_encoder_loaded = True
+                            break
+                        except Exception as e:
+                            logger.warning(f"[initialize_service] Failed to load text encoder with {attn_impl}: {e}")
+                            continue
+                    if not text_encoder_loaded:
+                        raise RuntimeError("Failed to load text encoder with any attention implementation")
                     if not self.offload_to_cpu:
                         self.text_encoder = self.text_encoder.to(device).to(self.dtype)
                     else:
                         self.text_encoder = self.text_encoder.to("cpu").to(self.dtype)
                     self.text_encoder.eval()
+                    # Disable gradients for all parameters (required for ZeroGPU pickling)
+                    self.text_encoder.requires_grad_(False)
                 else:
                     raise FileNotFoundError(f"Text encoder not found at {text_encoder_path}")
 
@@ -2722,9 +2761,12 @@ class AceStepHandler:
                 pass
 
         if self.model is None or self.vae is None or self.text_tokenizer is None or self.text_encoder is None:
+            missing = [k for k, v in [("model", self.model), ("vae", self.vae),
+                       ("text_tokenizer", self.text_tokenizer), ("text_encoder", self.text_encoder)] if v is None]
+            logger.error(f"[generate_music] Model not fully initialized. Missing: {missing}")
             return {
                 "audios": [],
-                "status_message": "❌ Model not fully initialized. Please initialize all components first.",
+                "status_message": f"❌ Model not fully initialized. Missing components: {missing}",
                 "extra_outputs": {},
                 "success": False,
                 "error": "Model not fully initialized",

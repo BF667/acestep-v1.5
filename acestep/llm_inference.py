@@ -30,6 +30,9 @@ class LLMHandler:
     # HuggingFace Space environment detection
     IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
 
+    # Force IS_ZEROGPU=True when on HuggingFace Space, as the env var detection is unreliable
+    IS_ZEROGPU = IS_HUGGINGFACE_SPACE or os.environ.get("ZEROGPU") is not None
+
     def __init__(self, persistent_storage_path: Optional[str] = None):
         """Initialize LLMHandler with default values"""
         self.llm = None
@@ -190,20 +193,74 @@ class LLMHandler:
             return self.build_formatted_prompt(
                 caption, lyrics, is_negative_prompt=True, generation_phase="cot", negative_prompt=negative_prompt
             )
-    
+
+    def is_flash_attn3_available(self) -> bool:
+        """Check if flash-attn3 via kernels library is available"""
+        try:
+            import kernels
+            return True
+        except ImportError:
+            return False
+
+    def is_flash_attention_available(self) -> bool:
+        """Check if flash attention is available on the system"""
+        try:
+            import flash_attn
+            return True
+        except ImportError:
+            return False
+
+    def get_best_attn_implementation(self) -> str:
+        """Get the best available attention implementation"""
+        if self.is_flash_attn3_available():
+            return "kernels-community/flash-attn3"
+        elif self.is_flash_attention_available():
+            return "flash_attention_2"
+        else:
+            return "sdpa"
+
     def _load_pytorch_model(self, model_path: str, device: str) -> Tuple[bool, str]:
         """Load PyTorch model from path and return (success, status_message)"""
         try:
-            self.llm = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+            # Try loading with the best available attention implementation
+            attn_implementation = self.get_best_attn_implementation()
+            attn_fallback_order = [attn_implementation]
+            if attn_implementation == "kernels-community/flash-attn3":
+                attn_fallback_order.extend(["flash_attention_2", "sdpa", "eager"])
+            elif attn_implementation == "flash_attention_2":
+                attn_fallback_order.extend(["sdpa", "eager"])
+            elif attn_implementation == "sdpa":
+                attn_fallback_order.append("eager")
+
+            for attn_impl in attn_fallback_order:
+                try:
+                    logger.info(f"[LLM Load] Attempting to load model with attention implementation: {attn_impl}")
+                    self.llm = AutoModelForCausalLM.from_pretrained(
+                        model_path,
+                        trust_remote_code=True,
+                        attn_implementation=attn_impl,
+                        torch_dtype=self.dtype,
+                    )
+                    attn_implementation = attn_impl
+                    break
+                except Exception as e:
+                    logger.warning(f"[LLM Load] Failed to load model with {attn_impl}: {e}")
+                    if attn_impl == attn_fallback_order[-1]:
+                        raise e
+
+            logger.info(f"[LLM Load Debug] Model loaded with {attn_implementation}, initial device: {next(self.llm.parameters()).device}")
             if not self.offload_to_cpu:
                 self.llm = self.llm.to(device).to(self.dtype)
             else:
                 self.llm = self.llm.to("cpu").to(self.dtype)
+            logger.info(f"[LLM Load Debug] After .to(), model device: {next(self.llm.parameters()).device}")
             self.llm.eval()
+            # Disable gradients for all parameters (required for ZeroGPU pickling)
+            self.llm.requires_grad_(False)
             self.llm_backend = "pt"
             self.llm_initialized = True
             logger.info(f"5Hz LM initialized successfully using PyTorch backend on {device}")
-            status_msg = f"✅ 5Hz LM initialized successfully\nModel: {model_path}\nBackend: PyTorch\nDevice: {device}"
+            status_msg = f"✅ 5Hz LM initialized successfully\nModel: {model_path}\nBackend: PyTorch ({attn_implementation})\nDevice: {device}"
             return True, status_msg
         except Exception as e:
             return False, f"❌ Error initializing 5Hz LM: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
@@ -312,6 +369,11 @@ class LLMHandler:
 
             self.device = device
             self.offload_to_cpu = offload_to_cpu
+
+            # Debug logging for ZeroGPU diagnosis
+            logger.info(f"[LLM Init Debug] IS_ZEROGPU={self.IS_ZEROGPU}, IS_HUGGINGFACE_SPACE={self.IS_HUGGINGFACE_SPACE}")
+            logger.info(f"[LLM Init Debug] torch.cuda.is_available()={torch.cuda.is_available()}")
+            logger.info(f"[LLM Init Debug] device={device}, offload_to_cpu={offload_to_cpu}")
             # Set dtype based on device: bfloat16 for cuda, float32 for cpu
             if dtype is None:
                 self.dtype = torch.bfloat16 if device in ["cuda", "xpu"] else torch.float32
@@ -577,8 +639,11 @@ class LLMHandler:
         )
 
         with self._load_model_context():
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
+            # Move inputs to the same device as the model (important for ZeroGPU where model may be on CPU)
+            model_device = next(self.llm.parameters()).device
+            inputs = {k: v.to(model_device) for k, v in inputs.items()}
+            logger.info(f"[_run_pt_single Debug] Inputs moved to model device: {model_device}")
+            logger.info(f"[_run_pt_single Debug] Input actual device: {inputs['input_ids'].device}")
             # Calculate max_new_tokens based on target_duration if specified
             # 5 audio codes = 1 second, plus ~500 tokens for CoT metadata and safety margin
             if target_duration is not None and target_duration > 0:
@@ -618,7 +683,7 @@ class LLMHandler:
                     truncation=True,
                 )
                 self.llm_tokenizer.padding_side = original_padding_side
-                batch_inputs_tokenized = {k: v.to(self.device) for k, v in batch_inputs_tokenized.items()}
+                batch_inputs_tokenized = {k: v.to(model_device) for k, v in batch_inputs_tokenized.items()}
                 
                 # Extract batch inputs
                 batch_input_ids = batch_inputs_tokenized['input_ids']
@@ -1988,7 +2053,8 @@ class LLMHandler:
         This allows us to call update_state() after each token generation.
         """
         model = self.llm
-        device = self.device
+        # Get device from model (important for ZeroGPU where model may be on different device than self.device)
+        device = next(model.parameters()).device
         
         # Initialize generated sequences
         generated_ids = input_ids.clone()
@@ -2088,7 +2154,8 @@ class LLMHandler:
         Batch format: [cond_input, uncond_input]
         """
         model = self.llm
-        device = self.device
+        # Get device from model (important for ZeroGPU where model may be on different device than self.device)
+        device = next(model.parameters()).device
         batch_size = batch_input_ids.shape[0] // 2  # Half are conditional, half are unconditional
         cond_start_idx = 0
         uncond_start_idx = batch_size
@@ -2309,7 +2376,30 @@ class LLMHandler:
         Context manager to load a model to GPU and offload it back to CPU after use.
         Only used for PyTorch backend when offload_to_cpu is True.
         """
+        logger.info(f"[_load_model_context Debug] Entry: offload_to_cpu={self.offload_to_cpu}, backend={self.llm_backend}, self.device={self.device}")
+        logger.info(f"[_load_model_context Debug] torch.cuda.is_available()={torch.cuda.is_available()}, IS_ZEROGPU={self.IS_ZEROGPU}")
+
+        model_device = None
+        if self.llm is not None:
+            model_device = next(self.llm.parameters()).device
+            logger.info(f"[_load_model_context Debug] Model current device: {model_device}")
+
+        # In ZeroGPU, model may be on CPU even though self.device="cuda" (due to hijacked .to() during init)
+        # Move to CUDA if available and model is on CPU
+        needs_move_to_cuda = (
+            self.llm is not None
+            and torch.cuda.is_available()
+            and model_device is not None
+            and model_device.type == "cpu"
+        )
+
+        if needs_move_to_cuda:
+            logger.info(f"[_load_model_context Debug] Moving model from CPU to cuda")
+            self.llm = self.llm.to("cuda").to(self.dtype)
+            logger.info(f"[_load_model_context Debug] Model now on: {next(self.llm.parameters()).device}")
+
         if not self.offload_to_cpu:
+            logger.info(f"[_load_model_context Debug] offload_to_cpu=False, yielding")
             yield
             return
         
@@ -2383,7 +2473,9 @@ class LLMHandler:
                 device = next(model_runner.model.parameters()).device
                 self._hf_model_for_scoring = self._hf_model_for_scoring.to(device)
                 self._hf_model_for_scoring.eval()
-                
+                # Disable gradients for all parameters (required for ZeroGPU pickling)
+                self._hf_model_for_scoring.requires_grad_(False)
+
                 logger.info(f"HuggingFace model for scoring ready on {device}")
             
             return self._hf_model_for_scoring

@@ -18,20 +18,6 @@ from acestep.audio_utils import AudioSaver, generate_uuid_from_params
 # HuggingFace Space environment detection
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
 
-def _get_spaces_gpu_decorator(duration=180):
-    """
-    Get the @spaces.GPU decorator if running in HuggingFace Space environment.
-    Returns identity decorator if not in Space environment.
-    """
-    if IS_HUGGINGFACE_SPACE:
-        try:
-            import spaces
-            return spaces.GPU(duration=duration)
-        except ImportError:
-            logger.warning("spaces package not found, GPU decorator disabled")
-            return lambda func: func
-    return lambda func: func
-
 
 @dataclass
 class GenerationParams:
@@ -289,7 +275,6 @@ def _update_metadata_from_lm(
     return bpm, key_scale, time_signature, audio_duration, vocal_language, caption, lyrics
 
 
-@_get_spaces_gpu_decorator(duration=180)
 def generate_music(
     dit_handler,
     llm_handler,
@@ -924,6 +909,19 @@ def create_sample(
         ...     print(f"Lyrics: {result.lyrics}")
         ...     print(f"BPM: {result.bpm}")
     """
+    import torch
+    # Debug logging for ZeroGPU diagnosis
+    logger.info(f"[create_sample Debug] Entry: IS_HUGGINGFACE_SPACE={IS_HUGGINGFACE_SPACE}")
+    logger.info(f"[create_sample Debug] torch.cuda.is_available()={torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        logger.info(f"[create_sample Debug] torch.cuda.current_device()={torch.cuda.current_device()}")
+    logger.info(f"[create_sample Debug] llm_handler.device={llm_handler.device}, llm_handler.offload_to_cpu={llm_handler.offload_to_cpu}")
+    if llm_handler.llm is not None:
+        try:
+            logger.info(f"[create_sample Debug] Model device: {next(llm_handler.llm.parameters()).device}")
+        except Exception as e:
+            logger.info(f"[create_sample Debug] Could not get model device: {e}")
+
     # Check if LLM is initialized
     if not llm_handler.llm_initialized:
         return CreateSampleResult(

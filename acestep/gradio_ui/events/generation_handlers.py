@@ -8,12 +8,32 @@ import random
 import glob
 import gradio as gr
 from typing import Optional, List, Tuple
+from loguru import logger
 from acestep.constants import (
     TASK_TYPES_TURBO,
     TASK_TYPES_BASE,
 )
 from acestep.gradio_ui.i18n import t
 from acestep.inference import understand_music, create_sample, format_sample
+
+
+# HuggingFace Space environment detection for ZeroGPU support
+IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
+
+
+def _get_spaces_gpu_decorator(duration=120):
+    """
+    Get the @spaces.GPU decorator if running in HuggingFace Space environment.
+    Returns identity decorator if not in Space environment.
+    """
+    if IS_HUGGINGFACE_SPACE:
+        try:
+            import spaces
+            return spaces.GPU(duration=duration)
+        except ImportError:
+            logger.warning("spaces package not found, GPU decorator disabled")
+            return lambda func: func
+    return lambda func: func
 
 
 def parse_and_validate_timesteps(
@@ -746,15 +766,15 @@ def handle_generation_mode_change(mode: str):
         think_checkbox_update,  # think_checkbox - disabled for cover/repaint modes
     )
 
-
+@_get_spaces_gpu_decorator(duration=180)
 def process_source_audio(dit_handler, llm_handler, src_audio, constrained_decoding_debug):
     """
     Process source audio: convert to codes and then transcribe.
     This combines convert_src_audio_to_codes_wrapper + transcribe_audio_codes.
     
     Args:
-        dit_handler: DiT handler instance for audio code conversion
-        llm_handler: LLM handler instance for transcription
+        dit_handler: DiT handler instance
+        llm_handler: LLM handler instance
         src_audio: Path to source audio file
         constrained_decoding_debug: Whether to enable debug logging
         
@@ -799,7 +819,7 @@ def process_source_audio(dit_handler, llm_handler, src_audio, constrained_decodi
         True  # Set is_format_caption to True
     )
 
-
+@_get_spaces_gpu_decorator(duration=180)
 def handle_create_sample(
     llm_handler,
     query: str,
@@ -819,7 +839,7 @@ def handle_create_sample(
     Note: cfg_scale and negative_prompt are not supported in create_sample mode.
     
     Args:
-        llm_handler: LLM handler instance
+        llm_handler: LLM handler instance (unused, fetched from registry)
         query: User's natural language music description
         instrumental: Whether to generate instrumental music
         vocal_language: Preferred vocal language for constrained decoding
@@ -929,7 +949,7 @@ def handle_create_sample(
         result.status_message,  # status_output
     )
 
-
+@_get_spaces_gpu_decorator(duration=180)
 def handle_format_sample(
     llm_handler,
     caption: str,
@@ -952,7 +972,7 @@ def handle_format_sample(
     Note: cfg_scale and negative_prompt are not supported in format mode.
     
     Args:
-        llm_handler: LLM handler instance
+        llm_handler: LLM handler instance (unused, fetched from registry)
         caption: User's caption/description
         lyrics: User's lyrics
         bpm: User-provided BPM (optional, for constrained decoding)

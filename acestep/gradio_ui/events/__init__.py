@@ -2,14 +2,34 @@
 Gradio UI Event Handlers Module
 Main entry point for setting up all event handlers
 """
+import os
 import gradio as gr
 from typing import Optional
+from loguru import logger
 
 # Import handler modules
 from . import generation_handlers as gen_h
 from . import results_handlers as res_h
 from . import training_handlers as train_h
 from acestep.gradio_ui.i18n import t
+
+# HuggingFace Space environment detection for ZeroGPU support
+IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
+
+
+def _get_spaces_gpu_decorator(duration=120):
+    """
+    Get the @spaces.GPU decorator if running in HuggingFace Space environment.
+    Returns identity decorator if not in Space environment.
+    """
+    if IS_HUGGINGFACE_SPACE:
+        try:
+            import spaces
+            return spaces.GPU(duration=duration)
+        except ImportError:
+            logger.warning("spaces package not found, GPU decorator disabled")
+            return lambda func: func
+    return lambda func: func
 
 
 def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, dataset_section, generation_section, results_section, init_params=None):
@@ -618,12 +638,13 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             ]
         )
     
+    @_get_spaces_gpu_decorator(duration=300)
     def generation_wrapper(selected_model, generation_mode, simple_query_input, simple_vocal_language, *args):
         """Wrapper that selects the appropriate DiT handler based on model selection"""
         # Convert args to list for modification
         args_list = list(args)
         
-        # args order (after simple mode params): 
+        # args order (after simple mode params):
         # captions (0), lyrics (1), bpm (2), key_scale (3), time_signature (4), vocal_language (5),
         # inference_steps (6), guidance_scale (7), random_seed_checkbox (8), seed (9),
         # reference_audio (10), audio_duration (11), batch_size_input (12), src_audio (13),
@@ -684,7 +705,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             # Mark as formatted caption (LM-generated sample)
             args_list[36] = True  # is_format_caption_state
         
-        # Determine which handler to use
+        # Determine which handler to use based on model selection
         active_handler = dit_handler  # Default to primary handler
         if dit_handler_2 is not None and selected_model == config_path_2:
             active_handler = dit_handler_2

@@ -18,6 +18,26 @@ from acestep.gradio_ui.i18n import t
 from acestep.gradio_ui.events.generation_handlers import parse_and_validate_timesteps
 from acestep.inference import generate_music, GenerationParams, GenerationConfig
 from acestep.audio_utils import save_audio
+from loguru import logger
+
+
+# HuggingFace Space environment detection for ZeroGPU support
+IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
+
+
+def _get_spaces_gpu_decorator(duration=120):
+    """
+    Get the @spaces.GPU decorator if running in HuggingFace Space environment.
+    Returns identity decorator if not in Space environment.
+    """
+    if IS_HUGGINGFACE_SPACE:
+        try:
+            import spaces
+            return spaces.GPU(duration=duration)
+        except ImportError:
+            logger.warning("spaces package not found, GPU decorator disabled")
+            return lambda func: func
+    return lambda func: func
 
 
 def parse_lrc_to_subtitles(lrc_text: str, total_duration: Optional[float] = None) -> List[Dict[str, Any]]:
@@ -1038,7 +1058,7 @@ def calculate_score_handler(
         error_msg = t("messages.score_error", error=str(e)) + f"\n{traceback.format_exc()}"
         return error_msg
 
-
+@_get_spaces_gpu_decorator(duration=240)
 def calculate_score_handler_with_selection(
         dit_handler,
         llm_handler,
@@ -1152,7 +1172,7 @@ def calculate_score_handler_with_selection(
         batch_queue
     )
 
-
+@_get_spaces_gpu_decorator(duration=240)
 def generate_lrc_handler(dit_handler, sample_idx, current_batch_index, batch_queue, vocal_language, inference_steps):
     """
     Generate LRC timestamps for a specific audio sample.
@@ -1165,7 +1185,7 @@ def generate_lrc_handler(dit_handler, sample_idx, current_batch_index, batch_que
     This decouples audio value updates from subtitle updates, avoiding flickering.
 
     Args:
-        dit_handler: DiT handler instance with get_lyric_timestamp method
+        dit_handler: DiT handler instance (unused, fetched from registry)
         sample_idx: Which sample to generate LRC for (1-8)
         current_batch_index: Current batch index in batch_queue
         batch_queue: Dictionary storing all batch generation data

@@ -1,8 +1,13 @@
 """
 ACE-Step v1.5 - HuggingFace Space Entry Point
-
 This file serves as the entry point for HuggingFace Space deployment.
 It initializes the service and launches the Gradio interface.
+ZeroGPU Support:
+- ZeroGPU uses the 'spaces' package to intercept CUDA operations
+- Models are loaded to "cuda" during startup but actual GPU allocation is deferred
+- Handlers are registered globally so forked processes inherit them without pickling
+- @spaces.GPU decorators are on top-level Gradio event handlers, not internal functions
+- nano-vllm uses direct CUDA APIs that bypass spaces interception, so we use PyTorch backend
 """
 import os
 import sys
@@ -22,11 +27,25 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 for proxy_var in ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY']:
     os.environ.pop(proxy_var, None)
 
+# Import spaces for ZeroGPU support (must be imported before torch for proper interception)
+# This is a no-op if not running on HuggingFace Spaces
+try:
+    import spaces
+    HAS_SPACES = True
+except ImportError:
+    HAS_SPACES = False
+
 import torch
 from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.dataset_handler import DatasetHandler
 from acestep.gradio_ui import create_gradio_interface
+
+# Detect ZeroGPU environment
+IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
+# ZeroGPU detection: check env var OR assume ZeroGPU for all HF Spaces (safer default)
+# The SPACE_HARDWARE env var is unreliable, so we assume ZeroGPU if on HF Space
+IS_ZEROGPU = IS_HUGGINGFACE_SPACE or os.environ.get("ZEROGPU") is not None
 
 
 def get_gpu_memory_gb():
@@ -105,14 +124,30 @@ def main():
         print("UI will be fully functional but generation is disabled")
         print("=" * 60)
     
+    # Log ZeroGPU detection
+    if IS_ZEROGPU:
+        print("=" * 60)
+        print("ZeroGPU environment detected")
+        print("- Using spaces package for GPU allocation")
+        print("- PyTorch backend forced for LLM (nano-vllm incompatible)")
+        print("- GPU will be allocated on-demand during generation")
+        print("=" * 60)
+    
     # Get persistent storage path (auto-detect)
     persistent_storage_path = get_persistent_storage_path()
     
     # Detect GPU memory for auto-configuration
+    # Note: In ZeroGPU, GPU may not be available during startup, so this may return 0
     gpu_memory_gb = get_gpu_memory_gb()
-    auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < 16
     
-    if not debug_ui:
+    # For ZeroGPU, we don't need CPU offload as GPU is allocated dynamically
+    if IS_ZEROGPU:
+        auto_offload = False
+        print("ZeroGPU: CPU offload disabled (GPU allocated on-demand)")
+    else:
+        auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < 16
+    
+    if not debug_ui and not IS_ZEROGPU:
         if auto_offload:
             print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (< 16GB)")
             print("Auto-enabling CPU offload to reduce GPU memory usage")
@@ -140,7 +175,11 @@ def main():
         "SERVICE_MODE_LM_MODEL",
         "acestep-5Hz-lm-1.7B"
     )
-    backend = os.environ.get("SERVICE_MODE_BACKEND", "vllm")
+    # For ZeroGPU, force PyTorch backend (nano-vllm uses direct CUDA APIs)
+    if IS_ZEROGPU:
+        backend = "pt"
+    else:
+        backend = os.environ.get("SERVICE_MODE_BACKEND", "vllm")
     device = "auto"
     
     print(f"Service mode configuration:")
@@ -151,6 +190,7 @@ def main():
     print(f"  Backend: {backend}")
     print(f"  Offload to CPU: {auto_offload}")
     print(f"  DEBUG_UI: {debug_ui}")
+    print(f"  ZeroGPU: {IS_ZEROGPU}")
     
     # Determine flash attention availability
     use_flash_attention = dit_handler.is_flash_attention_available()
@@ -230,7 +270,7 @@ def main():
         else:
             print(f"Warning: 5Hz LM initialization failed: {lm_status}", file=sys.stderr)
             init_status += f"\n{lm_status}"
-    
+
     # Build available models list for UI
     available_dit_models = [config_path]
     if config_path_2 and dit_handler_2 is not None:
@@ -275,7 +315,7 @@ def main():
     
     # Enable queue for multi-user support
     print("Enabling queue for multi-user support...")
-    demo.queue(max_size=20, default_concurrency_limit=1)
+    demo.queue(max_size=20)
     
     # Launch
     print("Launching server on 0.0.0.0:7860...")

@@ -3,10 +3,12 @@ title: ACE-Step v1.5
 emoji: 🎵
 colorFrom: blue
 colorTo: purple
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 6.2.0
+python_version: 3.11
 pinned: false
 license: mit
+app_file: app.py
 short_description: Music Generation Foundation Model v1.5
 ---
 
