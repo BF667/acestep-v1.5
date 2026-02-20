@@ -1058,7 +1058,6 @@ def calculate_score_handler(
         error_msg = t("messages.score_error", error=str(e)) + f"\n{traceback.format_exc()}"
         return error_msg
 
-@_get_spaces_gpu_decorator(duration=240)
 def calculate_score_handler_with_selection(
         dit_handler,
         llm_handler,
@@ -1172,7 +1171,6 @@ def calculate_score_handler_with_selection(
         batch_queue
     )
 
-@_get_spaces_gpu_decorator(duration=240)
 def generate_lrc_handler(dit_handler, sample_idx, current_batch_index, batch_queue, vocal_language, inference_steps):
     """
     Generate LRC timestamps for a specific audio sample.

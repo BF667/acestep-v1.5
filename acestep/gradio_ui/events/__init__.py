@@ -263,10 +263,14 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Format Button ==========
     # Note: cfg_scale and negative_prompt are not supported in format mode
-    generation_section["format_btn"].click(
-        fn=lambda caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug: gen_h.handle_format_sample(
+    @_get_spaces_gpu_decorator(duration=180)
+    def handle_format_sample_wrapper(caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug):
+        return gen_h.handle_format_sample(
             llm_handler, caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug
-        ),
+        )
+    
+    generation_section["format_btn"].click(
+        fn=handle_format_sample_wrapper,
         inputs=[
             generation_section["captions"],
             generation_section["lyrics"],
@@ -312,8 +316,16 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Process Source Audio Button ==========
     # Combines Convert to Codes + Transcribe in one step
+    # Note: @spaces.GPU decorator must be on the function passed directly to fn=,
+    # not on a module-level function wrapped in a lambda. Lambdas capturing handler
+    # objects cause pickling errors on ZeroGPU because the model contains unpicklable
+    # local objects (e.g. AceStepDiTModel.__init__ lambdas).
+    @_get_spaces_gpu_decorator(duration=180)
+    def process_source_audio_wrapper(src, debug):
+        return gen_h.process_source_audio(dit_handler, llm_handler, src, debug)
+    
     generation_section["process_src_btn"].click(
-        fn=lambda src, debug: gen_h.process_source_audio(dit_handler, llm_handler, src, debug),
+        fn=process_source_audio_wrapper,
         inputs=[
             generation_section["src_audio"],
             generation_section["constrained_decoding_debug"]
@@ -353,10 +365,14 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Create Sample Button (Simple Mode) ==========
     # Note: cfg_scale and negative_prompt are not supported in create_sample mode
-    generation_section["create_sample_btn"].click(
-        fn=lambda query, instrumental, vocal_lang, temp, top_k, top_p, debug: gen_h.handle_create_sample(
+    @_get_spaces_gpu_decorator(duration=180)
+    def handle_create_sample_wrapper(query, instrumental, vocal_lang, temp, top_k, top_p, debug):
+        return gen_h.handle_create_sample(
             llm_handler, query, instrumental, vocal_lang, temp, top_k, top_p, debug
-        ),
+        )
+    
+    generation_section["create_sample_btn"].click(
+        fn=handle_create_sample_wrapper,
         inputs=[
             generation_section["simple_query_input"],
             generation_section["simple_instrumental_checkbox"],
@@ -593,10 +609,15 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Score Calculation Handlers ==========
     # Use default argument to capture btn_idx value at definition time (Python closure fix)
+    # Note: @spaces.GPU decorator applied here (not on module-level function) to avoid
+    # pickling issues on ZeroGPU when handler objects are captured in closures.
     def make_score_handler(idx):
-        return lambda scale, batch_idx, queue: res_h.calculate_score_handler_with_selection(
-            dit_handler, llm_handler, idx, scale, batch_idx, queue
-        )
+        @_get_spaces_gpu_decorator(duration=240)
+        def score_handler(scale, batch_idx, queue):
+            return res_h.calculate_score_handler_with_selection(
+                dit_handler, llm_handler, idx, scale, batch_idx, queue
+            )
+        return score_handler
     
     for btn_idx in range(1, 9):
         results_section[f"score_btn_{btn_idx}"].click(
@@ -616,9 +637,12 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # ========== LRC Timestamp Handlers ==========
     # Use default argument to capture btn_idx value at definition time (Python closure fix)
     def make_lrc_handler(idx):
-        return lambda batch_idx, queue, vocal_lang, infer_steps: res_h.generate_lrc_handler(
-            dit_handler, idx, batch_idx, queue, vocal_lang, infer_steps
-        )
+        @_get_spaces_gpu_decorator(duration=240)
+        def lrc_handler(batch_idx, queue, vocal_lang, infer_steps):
+            return res_h.generate_lrc_handler(
+                dit_handler, idx, batch_idx, queue, vocal_lang, infer_steps
+            )
+        return lrc_handler
     
     for btn_idx in range(1, 9):
         results_section[f"lrc_btn_{btn_idx}"].click(

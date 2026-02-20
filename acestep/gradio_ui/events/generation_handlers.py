@@ -766,7 +766,6 @@ def handle_generation_mode_change(mode: str):
         think_checkbox_update,  # think_checkbox - disabled for cover/repaint modes
     )
 
-@_get_spaces_gpu_decorator(duration=180)
 def process_source_audio(dit_handler, llm_handler, src_audio, constrained_decoding_debug):
     """
     Process source audio: convert to codes and then transcribe.
@@ -819,7 +818,6 @@ def process_source_audio(dit_handler, llm_handler, src_audio, constrained_decodi
         True  # Set is_format_caption to True
     )
 
-@_get_spaces_gpu_decorator(duration=180)
 def handle_create_sample(
     llm_handler,
     query: str,
@@ -949,7 +947,6 @@ def handle_create_sample(
         result.status_message,  # status_output
     )
 
-@_get_spaces_gpu_decorator(duration=180)
 def handle_format_sample(
     llm_handler,
     caption: str,
