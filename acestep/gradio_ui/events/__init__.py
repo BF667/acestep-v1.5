@@ -263,7 +263,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Format Button ==========
     # Note: cfg_scale and negative_prompt are not supported in format mode
-    @_get_spaces_gpu_decorator(duration=180)
+    @_get_spaces_gpu_decorator(duration=120)
     def handle_format_sample_wrapper(caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug):
         return gen_h.handle_format_sample(
             llm_handler, caption, lyrics, bpm, duration, key_scale, time_sig, temp, top_k, top_p, debug
@@ -320,7 +320,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # not on a module-level function wrapped in a lambda. Lambdas capturing handler
     # objects cause pickling errors on ZeroGPU because the model contains unpicklable
     # local objects (e.g. AceStepDiTModel.__init__ lambdas).
-    @_get_spaces_gpu_decorator(duration=180)
+    @_get_spaces_gpu_decorator(duration=120)
     def process_source_audio_wrapper(src, debug):
         return gen_h.process_source_audio(dit_handler, llm_handler, src, debug)
     
@@ -365,7 +365,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     
     # ========== Create Sample Button (Simple Mode) ==========
     # Note: cfg_scale and negative_prompt are not supported in create_sample mode
-    @_get_spaces_gpu_decorator(duration=180)
+    @_get_spaces_gpu_decorator(duration=120)
     def handle_create_sample_wrapper(query, instrumental, vocal_lang, temp, top_k, top_p, debug):
         return gen_h.handle_create_sample(
             llm_handler, query, instrumental, vocal_lang, temp, top_k, top_p, debug
@@ -612,7 +612,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # Note: @spaces.GPU decorator applied here (not on module-level function) to avoid
     # pickling issues on ZeroGPU when handler objects are captured in closures.
     def make_score_handler(idx):
-        @_get_spaces_gpu_decorator(duration=240)
+        @_get_spaces_gpu_decorator(duration=120)
         def score_handler(scale, batch_idx, queue):
             return res_h.calculate_score_handler_with_selection(
                 dit_handler, llm_handler, idx, scale, batch_idx, queue
@@ -637,7 +637,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     # ========== LRC Timestamp Handlers ==========
     # Use default argument to capture btn_idx value at definition time (Python closure fix)
     def make_lrc_handler(idx):
-        @_get_spaces_gpu_decorator(duration=240)
+        @_get_spaces_gpu_decorator(duration=120)
         def lrc_handler(batch_idx, queue, vocal_lang, infer_steps):
             return res_h.generate_lrc_handler(
                 dit_handler, idx, batch_idx, queue, vocal_lang, infer_steps
@@ -662,7 +662,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             ]
         )
     
-    @_get_spaces_gpu_decorator(duration=300)
+    @_get_spaces_gpu_decorator(duration=120)
     def generation_wrapper(selected_model, generation_mode, simple_query_input, simple_vocal_language, *args):
         """Wrapper that selects the appropriate DiT handler based on model selection"""
         # Convert args to list for modification
