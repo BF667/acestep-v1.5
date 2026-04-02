@@ -445,6 +445,14 @@ class AceStepHandler:
             if not os.path.exists(acestep_v15_checkpoint_path):
                 acestep_v15_checkpoint_path = self._ensure_model_downloaded(config_path, checkpoint_dir)
 
+            # Ensure shared dependencies (VAE, text encoder) are available.
+            # Independent model repos (e.g., XL variants) only contain DiT weights.
+            # Download the unified repo first to get all shared components.
+            unified_model_path = os.path.join(checkpoint_dir, 'acestep-v15-turbo')
+            if not os.path.exists(unified_model_path):
+                logger.info('[initialize_service] Downloading unified repo for shared components (VAE, text encoder)...')
+                self._ensure_model_downloaded('acestep-v15-turbo', checkpoint_dir)
+
             if os.path.exists(acestep_v15_checkpoint_path):
                 # Determine attention implementation (prefer flash-attn3 > flash_attention_2 > sdpa)
                 if use_flash_attention:
