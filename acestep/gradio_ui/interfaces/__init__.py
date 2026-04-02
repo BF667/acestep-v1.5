@@ -64,7 +64,14 @@ def create_gradio_interface(dit_handler, llm_handler, dataset_handler, init_para
         gr.HTML(f"""
         <div class="main-header">
             <h1>{t("app.title")}</h1>
-            <p>{t("app.subtitle")}, try more on <a href="https://acemusic.ai" target="_blank">acemusic.ai</a></p>
+            <p>{t("app.subtitle")}</p>
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 10px 20px; border-radius: 8px; text-align: center; margin: 8px auto; max-width: 600px;">
+                <span style="color: white; font-size: 15px;">
+                    🚀 Want faster &amp; more stable experience? Try 
+                    <a href="https://acemusic.ai" target="_blank" style="color: #ffd700; font-weight: bold; text-decoration: underline;">acemusic.ai</a>
+                    — 100% free!
+                </span>
+            </div>
             <p style="margin-top: 0.5rem;">
                 <a href="https://ace-step.github.io/ace-step-v1.5.github.io/" target="_blank">Project</a> |
                 <a href="https://huggingface.co/collections/ACE-Step/ace-step-15" target="_blank">Hugging Face</a> |

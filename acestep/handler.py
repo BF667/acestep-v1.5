@@ -135,6 +135,10 @@ class AceStepHandler:
         "acestep-v15-base": "ACE-Step/acestep-v15-base",
         "acestep-v15-sft": "ACE-Step/acestep-v15-sft",
         "acestep-v15-turbo-shift3": "ACE-Step/acestep-v15-turbo-shift3",
+        # XL (4B) DiT models
+        "acestep-v15-xl-turbo": "ACE-Step/acestep-v15-xl-turbo",
+        "acestep-v15-xl-base": "ACE-Step/acestep-v15-xl-base",
+        "acestep-v15-xl-sft": "ACE-Step/acestep-v15-xl-sft",
     }
     
     # Default fallback repository for unknown models

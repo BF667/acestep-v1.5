@@ -9,6 +9,7 @@ python_version: 3.11
 pinned: false
 models: 
  - ACE-Step/Ace-Step1.5
+ - ACE-Step/acestep-v15-xl-turbo
 license: mit
 app_file: app.py
 short_description: Music Generation Foundation Model v1.5
