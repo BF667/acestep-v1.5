@@ -178,7 +178,7 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                 visible=False,
             )
         
-        # ==================== Generation Mode (4 modes) ====================
+        # ==================== Generation Mode (5 modes) ====================
         gr.HTML("<div style='background: #4a5568; color: white; padding: 8px 16px; border-radius: 4px; font-weight: bold;'>Generation Mode</div>")
         with gr.Row():
             generation_mode = gr.Radio(
@@ -186,6 +186,7 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                     ("Simple", "simple"),
                     ("Custom", "custom"),
                     ("Cover", "cover"),
+                    ("Remix", "remix"),
                     ("Repaint", "repaint"),
                 ],
                 value="custom",
@@ -327,6 +328,27 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
                     minimum=-1,
                     step=0.1,
                     scale=1,
+                )
+        
+        # ==================== Remix Mode: Controls ====================
+        with gr.Column(visible=False) as remix_group:
+            gr.HTML("<p style='color: #a0aec0; font-size: 0.85em; margin: 0 0 8px 0;'>Remix creates a new version of the source song with a different style. Lower strength = more creative departure from original, higher = closer to original.</p>")
+            with gr.Row():
+                remix_strength = gr.Slider(
+                    minimum=0.1,
+                    maximum=1.0,
+                    value=0.5,
+                    step=0.05,
+                    label="Remix Strength",
+                    info="How closely to follow the source audio (0.1=very creative, 1.0=close to original)",
+                    scale=3,
+                )
+                remix_style_prompt = gr.Textbox(
+                    label="Remix Style (optional)",
+                    placeholder="e.g., 'lo-fi hip hop', 'EDM remix', 'jazz cover'...",
+                    value="",
+                    info="Describe the target remix style",
+                    scale=5,
                 )
         
         # ==================== Optional Parameters ====================
@@ -639,6 +661,10 @@ def create_generation_section(dit_handler, llm_handler, init_params=None, langua
         "repainting_start": repainting_start,
         "repainting_end": repainting_end,
         "audio_cover_strength": audio_cover_strength,
+        # Remix mode components
+        "remix_group": remix_group,
+        "remix_strength": remix_strength,
+        "remix_style_prompt": remix_style_prompt,
         # Generation mode components
         "generation_mode": generation_mode,
         "simple_mode_group": simple_mode_group,

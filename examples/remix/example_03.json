@@ -1,0 +1,9 @@
+{
+    "description": "a smooth jazz remix with saxophone and brushed drums",
+    "task_type": "remix",
+    "remix_strength": 0.4,
+    "remix_style_prompt": "smooth jazz",
+    "caption": "smooth jazz, saxophone, brushed drums, warm bass, sophisticated, late night lounge",
+    "vocal_language": "en",
+    "instrumental": false
+}

@@ -65,6 +65,7 @@ We present ACE-Step v1.5, a highly efficient foundation model that democratizes 
 |---------|-------------|
 | ✅ Reference Audio Input | Use reference audio to guide generation style |
 | ✅ Cover Generation | Create covers from existing audio |
+| ✅ Remix Song | Remix existing songs with new styles and adjustable strength |
 | ✅ Repaint & Edit | Selective local audio editing and regeneration |
 | ✅ Track Separation | Separate audio into individual stems |
 | ✅ Multi-Track Generation | Add layers like Suno Studio's "Add Layer" feature |
@@ -164,6 +165,7 @@ We provide multiple ways to use ACE-Step:
 | 🖥️ **Gradio Web UI** | Interactive web interface for music generation | [Gradio Guide](./docs/en/GRADIO_GUIDE.md) |
 | 🐍 **Python API** | Programmatic access for integration | [Inference API](./docs/en/INFERENCE.md) |
 | 🌐 **REST API** | HTTP-based async API for services | [REST API](./docs/en/API.md) |
+| 📒 **Google Colab** | Run in the cloud with free GPU | [Open in Colab](./ACE_Step_v1_5_Colab.ipynb) |
 
 **📚 Documentation available in:** [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/)
 
@@ -225,10 +227,10 @@ If you find this project useful for your research, please consider citing:
 
 ```BibTeX
 @misc{gong2026acestep,
-	title={ACE-Step 1.5: Pushing the Boundaries of Open-Source Music Generation},
-	author={Junmin Gong, Song Yulin, Wenxiao Zhao, Sen Wang, Shengyuan Xu, Jing Guo}, 
-	howpublished={\url{https://github.com/ace-step/ACE-Step-1.5}},
-	year={2026},
-	note={GitHub repository}
+        title={ACE-Step 1.5: Pushing the Boundaries of Open-Source Music Generation},
+        author={Junmin Gong, Song Yulin, Wenxiao Zhao, Sen Wang, Shengyuan Xu, Jing Guo}, 
+        howpublished={\url{https://github.com/ace-step/ACE-Step-1.5}},
+        year={2026},
+        note={GitHub repository}
 }
 ```

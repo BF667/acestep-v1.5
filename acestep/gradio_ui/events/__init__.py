@@ -296,7 +296,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         ]
     )
     
-    # ========== Generation Mode Toggle (Simple/Custom/Cover/Repaint) ==========
+    # ========== Generation Mode Toggle (Simple/Custom/Cover/Remix/Repaint) ==========
     generation_section["generation_mode"].change(
         fn=gen_h.handle_generation_mode_change,
         inputs=[generation_section["generation_mode"]],
@@ -310,7 +310,8 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             generation_section["simple_sample_created"],
             generation_section["src_audio_group"],
             generation_section["audio_cover_strength"],
-            generation_section["think_checkbox"],  # Disable thinking for cover/repaint modes
+            generation_section["think_checkbox"],  # Disable thinking for cover/remix/repaint modes
+            generation_section["remix_group"],  # Remix controls visibility
         ]
     )
     
@@ -607,6 +608,47 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             ]
         )
     
+    # ========== Send to Remix Handlers ==========
+    def send_to_remix_handler(audio_file, lm_metadata):
+        """Send audio to remix mode and switch to remix"""
+        if audio_file is None:
+            return (gr.skip(),) * 11
+        return (
+            audio_file,      # src_audio
+            gr.skip(),       # bpm
+            gr.skip(),       # captions
+            gr.skip(),       # lyrics
+            gr.skip(),       # audio_duration
+            gr.skip(),       # key_scale
+            gr.skip(),       # vocal_language
+            gr.skip(),       # time_signature
+            gr.skip(),       # is_format_caption_state
+            "remix",         # generation_mode - switch to remix
+            "remix",         # task_type - set to remix
+        )
+    
+    for btn_idx in range(1, 9):
+        results_section[f"send_to_remix_btn_{btn_idx}"].click(
+            fn=send_to_remix_handler,
+            inputs=[
+                results_section[f"generated_audio_{btn_idx}"],
+                results_section["lm_metadata_state"]
+            ],
+            outputs=[
+                generation_section["src_audio"],
+                generation_section["bpm"],
+                generation_section["captions"],
+                generation_section["lyrics"],
+                generation_section["audio_duration"],
+                generation_section["key_scale"],
+                generation_section["vocal_language"],
+                generation_section["time_signature"],
+                results_section["is_format_caption_state"],
+                generation_section["generation_mode"],
+                generation_section["task_type"],
+            ]
+        )
+    
     # ========== Score Calculation Handlers ==========
     # Use default argument to capture btn_idx value at definition time (Python closure fix)
     # Note: @spaces.GPU decorator applied here (not on module-level function) to avoid
@@ -663,7 +705,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         )
     
     @_get_spaces_gpu_decorator(duration=120)
-    def generation_wrapper(selected_model, generation_mode, simple_query_input, simple_vocal_language, *args):
+    def generation_wrapper(selected_model, generation_mode, simple_query_input, simple_vocal_language, remix_strength, remix_style_prompt, *args):
         """Wrapper that selects the appropriate DiT handler based on model selection"""
         # Convert args to list for modification
         args_list = list(args)
@@ -680,9 +722,21 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         src_audio = args_list[13] if len(args_list) > 13 else None
         task_type = args_list[19] if len(args_list) > 19 else "text2music"
         
-        # Validate: Cover and Repaint modes require source audio
-        if task_type in ["cover", "repaint"] and src_audio is None:
+        # Validate: Cover, Remix and Repaint modes require source audio
+        if task_type in ["cover", "remix", "repaint"] and src_audio is None:
             raise gr.Error(f"Source Audio is required for {task_type.capitalize()} mode. Please upload an audio file.")
+        
+        # Handle Remix mode: use cover mode internally with remix_strength as audio_cover_strength
+        if task_type == "remix":
+            # Set audio_cover_strength to remix_strength value
+            args_list[18] = remix_strength
+            # If remix_style_prompt is provided, prepend it to the caption
+            if remix_style_prompt and remix_style_prompt.strip():
+                existing_caption = args_list[0] if args_list[0] else ""
+                if existing_caption:
+                    args_list[0] = f"{remix_style_prompt.strip()}, {existing_caption}"
+                else:
+                    args_list[0] = f"Remix in {remix_style_prompt.strip()} style"
         
         # Handle Simple mode: first create sample, then generate
         if generation_mode == "simple":
@@ -743,6 +797,8 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
             generation_section["generation_mode"],  # For Simple mode detection
             generation_section["simple_query_input"],  # Simple mode query
             generation_section["simple_vocal_language"],  # Simple mode vocal language
+            generation_section["remix_strength"],  # Remix mode strength
+            generation_section["remix_style_prompt"],  # Remix mode style prompt
             generation_section["captions"],
             generation_section["lyrics"],
             generation_section["bpm"],

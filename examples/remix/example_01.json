@@ -1,0 +1,9 @@
+{
+    "description": "a chill lo-fi hip hop remix with vinyl crackle and mellow piano",
+    "task_type": "remix",
+    "remix_strength": 0.5,
+    "remix_style_prompt": "lo-fi hip hop",
+    "caption": "lo-fi hip hop, vinyl crackle, mellow piano, chill beats, warm atmosphere",
+    "instrumental": true,
+    "vocal_language": "unknown"
+}

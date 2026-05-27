@@ -1,0 +1,9 @@
+{
+    "description": "an energetic EDM dance remix with heavy bass drops and synth leads",
+    "task_type": "remix",
+    "remix_strength": 0.3,
+    "remix_style_prompt": "EDM dance",
+    "caption": "EDM, dance, heavy bass drops, synth leads, energetic, festival anthem, four on the floor",
+    "instrumental": true,
+    "vocal_language": "unknown"
+}

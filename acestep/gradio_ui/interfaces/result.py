@@ -44,6 +44,12 @@ def create_results_section(dit_handler) -> dict:
                         size="sm",
                         scale=1
                     )
+                    send_to_remix_btn_1 = gr.Button(
+                        t("results.send_to_remix_btn"),
+                        variant="secondary",
+                        size="sm",
+                        scale=1
+                    )
                     save_btn_1 = gr.Button(
                         t("results.save_btn"),
                         variant="primary",
@@ -105,6 +111,12 @@ def create_results_section(dit_handler) -> dict:
                     )
                     send_to_repaint_btn_2 = gr.Button(
                         t("results.send_to_repaint_btn"),
+                        variant="secondary",
+                        size="sm",
+                        scale=1
+                    )
+                    send_to_remix_btn_2 = gr.Button(
+                        t("results.send_to_remix_btn"),
                         variant="secondary",
                         size="sm",
                         scale=1
@@ -174,6 +186,12 @@ def create_results_section(dit_handler) -> dict:
                         size="sm",
                         scale=1
                     )
+                    send_to_remix_btn_3 = gr.Button(
+                        t("results.send_to_remix_btn"),
+                        variant="secondary",
+                        size="sm",
+                        scale=1
+                    )
                     save_btn_3 = gr.Button(
                         t("results.save_btn"),
                         variant="primary",
@@ -239,6 +257,12 @@ def create_results_section(dit_handler) -> dict:
                         size="sm",
                         scale=1
                     )
+                    send_to_remix_btn_4 = gr.Button(
+                        t("results.send_to_remix_btn"),
+                        variant="secondary",
+                        size="sm",
+                        scale=1
+                    )
                     save_btn_4 = gr.Button(
                         t("results.save_btn"),
                         variant="primary",
@@ -297,6 +321,7 @@ def create_results_section(dit_handler) -> dict:
                 with gr.Row(equal_height=True):
                     send_to_cover_btn_5 = gr.Button(t("results.send_to_cover_btn"), variant="secondary", size="sm", scale=1)
                     send_to_repaint_btn_5 = gr.Button(t("results.send_to_repaint_btn"), variant="secondary", size="sm", scale=1)
+                    send_to_remix_btn_5 = gr.Button(t("results.send_to_remix_btn"), variant="secondary", size="sm", scale=1)
                     save_btn_5 = gr.Button(t("results.save_btn"), variant="primary", size="sm", scale=1)
                     score_btn_5 = gr.Button(t("results.score_btn"), variant="secondary", size="sm", scale=1, visible=False)
                     lrc_btn_5 = gr.Button(t("results.lrc_btn"), variant="secondary", size="sm", scale=1, visible=False)
@@ -335,6 +360,7 @@ def create_results_section(dit_handler) -> dict:
                 with gr.Row(equal_height=True):
                     send_to_cover_btn_6 = gr.Button(t("results.send_to_cover_btn"), variant="secondary", size="sm", scale=1)
                     send_to_repaint_btn_6 = gr.Button(t("results.send_to_repaint_btn"), variant="secondary", size="sm", scale=1)
+                    send_to_remix_btn_6 = gr.Button(t("results.send_to_remix_btn"), variant="secondary", size="sm", scale=1)
                     save_btn_6 = gr.Button(t("results.save_btn"), variant="primary", size="sm", scale=1)
                     score_btn_6 = gr.Button(t("results.score_btn"), variant="secondary", size="sm", scale=1, visible=False)
                     lrc_btn_6 = gr.Button(t("results.lrc_btn"), variant="secondary", size="sm", scale=1, visible=False)
@@ -373,6 +399,7 @@ def create_results_section(dit_handler) -> dict:
                 with gr.Row(equal_height=True):
                     send_to_cover_btn_7 = gr.Button(t("results.send_to_cover_btn"), variant="secondary", size="sm", scale=1)
                     send_to_repaint_btn_7 = gr.Button(t("results.send_to_repaint_btn"), variant="secondary", size="sm", scale=1)
+                    send_to_remix_btn_7 = gr.Button(t("results.send_to_remix_btn"), variant="secondary", size="sm", scale=1)
                     save_btn_7 = gr.Button(t("results.save_btn"), variant="primary", size="sm", scale=1)
                     score_btn_7 = gr.Button(t("results.score_btn"), variant="secondary", size="sm", scale=1, visible=False)
                     lrc_btn_7 = gr.Button(t("results.lrc_btn"), variant="secondary", size="sm", scale=1, visible=False)
@@ -411,6 +438,7 @@ def create_results_section(dit_handler) -> dict:
                 with gr.Row(equal_height=True):
                     send_to_cover_btn_8 = gr.Button(t("results.send_to_cover_btn"), variant="secondary", size="sm", scale=1)
                     send_to_repaint_btn_8 = gr.Button(t("results.send_to_repaint_btn"), variant="secondary", size="sm", scale=1)
+                    send_to_remix_btn_8 = gr.Button(t("results.send_to_remix_btn"), variant="secondary", size="sm", scale=1)
                     save_btn_8 = gr.Button(t("results.save_btn"), variant="primary", size="sm", scale=1)
                     score_btn_8 = gr.Button(t("results.score_btn"), variant="secondary", size="sm", scale=1, visible=False)
                     lrc_btn_8 = gr.Button(t("results.lrc_btn"), variant="secondary", size="sm", scale=1, visible=False)
@@ -536,6 +564,14 @@ def create_results_section(dit_handler) -> dict:
         "send_to_repaint_btn_6": send_to_repaint_btn_6,
         "send_to_repaint_btn_7": send_to_repaint_btn_7,
         "send_to_repaint_btn_8": send_to_repaint_btn_8,
+        "send_to_remix_btn_1": send_to_remix_btn_1,
+        "send_to_remix_btn_2": send_to_remix_btn_2,
+        "send_to_remix_btn_3": send_to_remix_btn_3,
+        "send_to_remix_btn_4": send_to_remix_btn_4,
+        "send_to_remix_btn_5": send_to_remix_btn_5,
+        "send_to_remix_btn_6": send_to_remix_btn_6,
+        "send_to_remix_btn_7": send_to_remix_btn_7,
+        "send_to_remix_btn_8": send_to_remix_btn_8,
         "save_btn_1": save_btn_1,
         "save_btn_2": save_btn_2,
         "save_btn_3": save_btn_3,

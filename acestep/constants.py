@@ -53,13 +53,13 @@ VALID_TIME_SIGNATURES = [2, 3, 4, 6]
 # Task Type Constants
 # ==============================================================================
 
-TASK_TYPES = ["text2music", "repaint", "cover", "extract", "lego", "complete"]
+TASK_TYPES = ["text2music", "repaint", "cover", "remix", "extract", "lego", "complete"]
 
 # Task types available for turbo models (subset)
-TASK_TYPES_TURBO = ["text2music", "repaint", "cover"]
+TASK_TYPES_TURBO = ["text2music", "repaint", "cover", "remix"]
 
 # Task types available for base models (full set)
-TASK_TYPES_BASE = ["text2music", "repaint", "cover", "extract", "lego", "complete"]
+TASK_TYPES_BASE = ["text2music", "repaint", "cover", "remix", "extract", "lego", "complete"]
 
 
 # ==============================================================================
@@ -80,6 +80,7 @@ TASK_INSTRUCTIONS = {
     "text2music": "Fill the audio semantic mask based on the given conditions:",
     "repaint": "Repaint the mask area based on the given conditions:",
     "cover": "Generate audio semantic tokens based on the given conditions:",
+    "remix": "Remix the source audio with the given style and conditions:",
     "extract": "Extract the {TRACK_NAME} track from the audio:",
     "extract_default": "Extract the track from the audio:",
     "lego": "Generate the {TRACK_NAME} track based on the audio context:",

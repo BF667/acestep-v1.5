@@ -708,16 +708,17 @@ def update_audio_components_visibility(batch_size):
 
 def handle_generation_mode_change(mode: str):
     """
-    Handle generation mode change between Simple, Custom, Cover, and Repaint modes.
+    Handle generation mode change between Simple, Custom, Cover, Remix, and Repaint modes.
     
     Modes:
     - Simple: Show simple mode group, hide others
     - Custom: Show custom content (prompt), hide others
     - Cover: Show src_audio_group + custom content + LM codes strength
+    - Remix: Show src_audio_group + custom content + remix controls (strength + style)
     - Repaint: Show src_audio_group + custom content + repaint time controls (hide LM codes strength)
     
     Args:
-        mode: "simple", "custom", "cover", or "repaint"
+        mode: "simple", "custom", "cover", "remix", or "repaint"
         
     Returns:
         Tuple of updates for:
@@ -728,13 +729,15 @@ def handle_generation_mode_change(mode: str):
         - task_type (value)
         - generate_btn (interactive state)
         - simple_sample_created (reset state)
-        - src_audio_group (visibility) - shown for cover and repaint
+        - src_audio_group (visibility) - shown for cover, remix, and repaint
         - audio_cover_strength (visibility) - shown only for cover mode
-        - think_checkbox (value and interactive) - disabled for cover/repaint modes
+        - think_checkbox (value and interactive) - disabled for cover/remix/repaint modes
+        - remix_group (visibility) - shown only for remix mode
     """
     is_simple = mode == "simple"
     is_custom = mode == "custom"
     is_cover = mode == "cover"
+    is_remix = mode == "remix"
     is_repaint = mode == "repaint"
     
     # Map mode to task_type
@@ -742,28 +745,30 @@ def handle_generation_mode_change(mode: str):
         "simple": "text2music",
         "custom": "text2music",
         "cover": "cover",
+        "remix": "remix",
         "repaint": "repaint",
     }
     task_type_value = task_type_map.get(mode, "text2music")
     
-    # think_checkbox: disabled and set to False for cover/repaint modes
+    # think_checkbox: disabled and set to False for cover/remix/repaint modes
     # (these modes don't use LM thinking, they use source audio codes)
-    if is_cover or is_repaint:
+    if is_cover or is_repaint or is_remix:
         think_checkbox_update = gr.update(value=False, interactive=False)
     else:
         think_checkbox_update = gr.update(value=True, interactive=True)
     
     return (
         gr.update(visible=is_simple),  # simple_mode_group
-        gr.update(visible=not is_simple),  # custom_mode_content - visible for custom/cover/repaint
+        gr.update(visible=not is_simple),  # custom_mode_content - visible for custom/cover/remix/repaint
         gr.update(visible=False),  # cover_mode_group - legacy, always hidden
         gr.update(visible=is_repaint),  # repainting_group - time range controls
         gr.update(value=task_type_value),  # task_type
-        gr.update(interactive=True),  # generate_btn - always enabled (Simple mode does create+generate in one step)
+        gr.update(interactive=True),  # generate_btn - always enabled
         False,  # simple_sample_created - reset to False on mode change
-        gr.update(visible=is_cover or is_repaint),  # src_audio_group - shown for cover and repaint
+        gr.update(visible=is_cover or is_remix or is_repaint),  # src_audio_group - shown for cover, remix, and repaint
         gr.update(visible=is_cover),  # audio_cover_strength - only shown for cover mode
-        think_checkbox_update,  # think_checkbox - disabled for cover/repaint modes
+        think_checkbox_update,  # think_checkbox - disabled for cover/remix/repaint modes
+        gr.update(visible=is_remix),  # remix_group - shown only for remix mode
     )
 
 def process_source_audio(dit_handler, llm_handler, src_audio, constrained_decoding_debug):

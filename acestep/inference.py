@@ -344,7 +344,7 @@ def generate_music(
         # LM-based Chain-of-Thought reasoning
         # Skip LM for cover/repaint tasks - these tasks use reference/src audio directly
         # and don't need LM to generate audio codes
-        skip_lm_tasks = {"cover", "repaint"}
+        skip_lm_tasks = {"cover", "repaint", "remix"}
         
         # Determine if we should use LLM
         # LLM is needed for:

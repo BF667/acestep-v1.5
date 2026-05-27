@@ -1439,6 +1439,8 @@ class AceStepHandler:
             return TASK_INSTRUCTIONS["repaint"]
         elif task_type == "cover":
             return TASK_INSTRUCTIONS["cover"]
+        elif task_type == "remix":
+            return TASK_INSTRUCTIONS["remix"]
         elif task_type == "extract":
             if track_name:
                 # Convert to uppercase
@@ -1632,10 +1634,10 @@ class AceStepHandler:
     
     def determine_task_type(self, task_type, audio_code_string):
         # Determine task type - repaint and lego tasks can have repainting parameters
-        # Other tasks (cover, text2music, extract, complete) should NOT have repainting
+        # Other tasks (cover, remix, text2music, extract, complete) should NOT have repainting
         is_repaint_task = (task_type == "repaint")
         is_lego_task = (task_type == "lego")
-        is_cover_task = (task_type == "cover")
+        is_cover_task = (task_type == "cover") or (task_type == "remix")
 
         has_codes = False
         if isinstance(audio_code_string, list):
