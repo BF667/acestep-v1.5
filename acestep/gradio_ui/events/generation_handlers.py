@@ -423,7 +423,7 @@ def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, devi
     from acestep.quiet_loading import quiet_mode
     
     # Initialize DiT handler (suppress verbose output)
-    with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+    with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True, suppress_loguru=True):
         status, enable = dit_handler.initialize_service(
             checkpoint, config_path, device,
             use_flash_attention=use_flash_attention, compile_model=False, 
@@ -438,7 +438,7 @@ def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, devi
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         checkpoint_dir = os.path.join(project_root, "checkpoints")
         
-        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True, suppress_loguru=True):
             lm_status, lm_success = llm_handler.initialize(
                 checkpoint_dir=checkpoint_dir,
                 lm_model_path=lm_model_path,

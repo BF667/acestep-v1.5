@@ -21,7 +21,7 @@ short_description: Music Generation Foundation Model v1.5
 
 ### Pushing the Boundaries of Open-Source Music Generation
 
-[![GitHub Stars](https://img.shields.io/github/stars/ACE-Step/ACE-Step-1.5?style=social)](https://github.com/ACE-Step/ACE-Step-1.5)
+[![GitHub Stars](https://img.shields.io/github/stars/BF667/acestep-v1.5?style=social)](https://github.com/BF667/acestep-v1.5)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.7-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
@@ -231,8 +231,8 @@ Get up and running in under 5 minutes:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 2. Clone the repository
-git clone https://github.com/ACE-Step/ACE-Step-1.5.git
-cd ACE-Step-1.5
+git clone https://github.com/BF667/acestep-v1.5.git
+cd acestep-v1.5
 
 # 3. Install dependencies
 uv sync
@@ -245,9 +245,9 @@ Then open **http://localhost:7860** in your browser. Models download automatical
 
 <div align="center">
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](./ACE_Step_v1_5_Colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BF667/acestep-v1.5/blob/main/ACE_Step_v1_5_Colab.ipynb)
 
-**Try ACE-Step v1.5 instantly in Google Colab — no GPU required!**
+**Try ACE-Step v1.5 instantly in Google Colab — free GPU included!**
 
 </div>
 
@@ -270,8 +270,8 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ### Step 2: Clone & Install
 
 ```bash
-git clone https://github.com/ACE-Step/ACE-Step-1.5.git
-cd ACE-Step-1.5
+git clone https://github.com/BF667/acestep-v1.5.git
+cd acestep-v1.5
 uv sync
 ```
 
@@ -297,7 +297,7 @@ API runs at http://localhost:8001. See [API Documentation](./docs/en/API.md) for
 
 <div align="left">
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](./ACE_Step_v1_5_Colab.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BF667/acestep-v1.5/blob/main/ACE_Step_v1_5_Colab.ipynb)
 
 </div>
 
@@ -368,7 +368,7 @@ We provide multiple ways to use ACE-Step:
 | 🖥️ **Gradio Web UI** | Interactive web interface for music generation | [Gradio Guide](./docs/en/GRADIO_GUIDE.md) |
 | 🐍 **Python API** | Programmatic access for integration | [Inference API](./docs/en/INFERENCE.md) |
 | 🌐 **REST API** | HTTP-based async API for services | [REST API](./docs/en/API.md) |
-| 📒 **Google Colab** | Run in the cloud with free GPU | [Open in Colab](./ACE_Step_v1_5_Colab.ipynb) |
+| 📒 **Google Colab** | Run in the cloud with free GPU | [Open in Colab](https://colab.research.google.com/github/BF667/acestep-v1.5/blob/main/ACE_Step_v1_5_Colab.ipynb) |
 
 **📚 Documentation available in:** [English](./docs/en/) | [中文](./docs/zh/) | [日本語](./docs/ja/)
 
@@ -580,7 +580,7 @@ If you find this project useful for your research, please consider citing:
 @misc{gong2026acestep,
         title={ACE-Step 1.5: Pushing the Boundaries of Open-Source Music Generation},
         author={Junmin Gong, Song Yulin, Wenxiao Zhao, Sen Wang, Shengyuan Xu, Jing Guo},
-        howpublished={\url{https://github.com/ace-step/ACE-Step-1.5}},
+        howpublished={\url{https://github.com/BF667/acestep-v1.5}},
         year={2026},
         note={GitHub repository}
 }

@@ -4,7 +4,7 @@ Quiet Loading Utilities
 Suppresses verbose output during model initialization for a clean user experience.
 Third-party libraries (transformers, diffusers, torch, huggingface_hub) often
 produce extensive logging during model loading. This module provides utilities
-to temporarily suppress that output.
+to temporarily suppress that output, including loguru logger messages.
 
 Usage:
     # As a context manager
@@ -33,6 +33,9 @@ _quiet_mode_enabled = False
 
 # Store original logging levels to restore later
 _original_log_levels: dict = {}
+
+# Store original loguru handlers to restore later
+_original_loguru_handlers: list = []
 
 # Libraries that produce verbose output during model loading
 _VERBOSE_LIBRARIES = [
@@ -87,6 +90,71 @@ def _restore_library_logging():
     _original_log_levels.clear()
 
 
+def _suppress_loguru():
+    """Suppress loguru logger output by replacing handlers with a null sink.
+    
+    Loguru is used extensively in the codebase for model loading messages.
+    During quiet mode, we redirect loguru output to a null sink so that
+    only ERROR level messages are shown.
+    """
+    global _original_loguru_handlers
+    
+    try:
+        from loguru import logger
+        
+        # Save current handlers
+        _original_loguru_handlers = list(logger._core.handlers.values())
+        
+        # Remove all existing handlers
+        handler_ids = list(logger._core.handlers.keys())
+        for handler_id in handler_ids:
+            logger.remove(handler_id)
+        
+        # Add a handler that only shows ERROR level and above
+        logger.add(
+            sys.stderr,
+            level="ERROR",
+            format="{message}",
+        )
+    except ImportError:
+        pass
+
+
+def _restore_loguru():
+    """Restore loguru logger handlers to their original state."""
+    global _original_loguru_handlers
+    
+    try:
+        from loguru import logger
+        
+        # Remove all current handlers (including our error-only one)
+        handler_ids = list(logger._core.handlers.keys())
+        for handler_id in handler_ids:
+            logger.remove(handler_id)
+        
+        # Restore original handlers
+        for handler in _original_loguru_handlers:
+            try:
+                logger.add(
+                    handler._sink,
+                    level=handler.levelno,
+                    format=handler._format,
+                    filter=handler._filter,
+                    colorize=handler._colorize,
+                    serialize=handler._serialize,
+                    backtrace=handler._backtrace,
+                    diagnose=handler._diagnose,
+                    enqueue=handler._enqueue,
+                    catch=handler._catch,
+                )
+            except Exception:
+                pass
+        
+        _original_loguru_handlers.clear()
+    except ImportError:
+        pass
+
+
 def _suppress_tqdm():
     """Disable tqdm progress bars globally."""
     try:
@@ -109,6 +177,7 @@ def enable_quiet_mode(
     suppress_stdout: bool = True,
     suppress_logging: bool = True,
     suppress_tqdm: bool = True,
+    suppress_loguru: bool = True,
 ):
     """Enable quiet mode to suppress verbose model loading output.
 
@@ -116,6 +185,7 @@ def enable_quiet_mode(
         suppress_stdout: Redirect stdout to suppress print() statements
         suppress_logging: Set verbose libraries to ERROR level
         suppress_tqdm: Disable tqdm progress bars
+        suppress_loguru: Suppress loguru logger messages (set to ERROR level)
     """
     global _quiet_mode_enabled
 
@@ -127,6 +197,10 @@ def enable_quiet_mode(
     # Suppress third-party library logging
     if suppress_logging:
         _suppress_library_logging()
+
+    # Suppress loguru logger
+    if suppress_loguru:
+        _suppress_loguru()
 
     # Suppress tqdm
     if suppress_tqdm:
@@ -159,6 +233,9 @@ def disable_quiet_mode():
     # Restore library logging
     _restore_library_logging()
 
+    # Restore loguru
+    _restore_loguru()
+
     # Restore tqdm
     _restore_tqdm()
 
@@ -173,16 +250,18 @@ def quiet_mode(
     suppress_stdout: bool = True,
     suppress_logging: bool = True,
     suppress_tqdm: bool = True,
+    suppress_loguru: bool = True,
 ):
     """Context manager for quiet model loading.
 
-    Suppresses verbose output from third-party libraries during model initialization.
-    Errors and exceptions are still printed to stderr.
+    Suppresses verbose output from third-party libraries and loguru during
+    model initialization. Errors and exceptions are still printed to stderr.
 
     Args:
         suppress_stdout: Redirect stdout to suppress print() statements
         suppress_logging: Set verbose libraries to ERROR level
         suppress_tqdm: Disable tqdm progress bars
+        suppress_loguru: Suppress loguru logger messages (set to ERROR level)
 
     Example:
         >>> with quiet_mode():
@@ -197,6 +276,7 @@ def quiet_mode(
             suppress_stdout=suppress_stdout,
             suppress_logging=suppress_logging,
             suppress_tqdm=suppress_tqdm,
+            suppress_loguru=suppress_loguru,
         )
         yield
     finally:

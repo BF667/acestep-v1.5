@@ -40,7 +40,7 @@ from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.dataset_handler import DatasetHandler
 from acestep.gradio_ui import create_gradio_interface
-from acestep.quiet_loading import quiet_mode, quiet_print
+from acestep.quiet_loading import quiet_mode, quiet_print, enable_quiet_mode, disable_quiet_mode
 
 # Detect ZeroGPU environment
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
@@ -210,7 +210,7 @@ def main():
     else:
         # Initialize primary DiT model
         quiet_print(f"Initializing DiT model 1: {config_path}...")
-        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True, suppress_loguru=True):
             init_status, enable_generate = dit_handler.initialize_service(
                 project_root=current_dir,
                 config_path=config_path,
@@ -232,7 +232,7 @@ def main():
             dit_handler_2 = AceStepHandler(persistent_storage_path=persistent_storage_path)
             
             # Share VAE, text_encoder, and silence_latent from the first handler to save memory
-            with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+            with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True, suppress_loguru=True):
                 init_status_2, enable_generate_2 = dit_handler_2.initialize_service(
                     project_root=current_dir,
                     config_path=config_path_2,
@@ -258,7 +258,7 @@ def main():
         # Initialize LM model
         checkpoint_dir = dit_handler._get_checkpoint_dir()
         quiet_print(f"Initializing 5Hz LM: {lm_model_path}...")
-        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True, suppress_loguru=True):
             lm_status, lm_success = llm_handler.initialize(
                 checkpoint_dir=checkpoint_dir,
                 lm_model_path=lm_model_path,
