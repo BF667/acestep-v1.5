@@ -40,6 +40,7 @@ from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.dataset_handler import DatasetHandler
 from acestep.gradio_ui import create_gradio_interface
+from acestep.quiet_loading import quiet_mode, quiet_print
 
 # Detect ZeroGPU environment
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
@@ -126,12 +127,12 @@ def main():
     
     # Log ZeroGPU detection
     if IS_ZEROGPU:
-        print("=" * 60)
-        print("ZeroGPU environment detected")
-        print("- Using spaces package for GPU allocation")
-        print("- PyTorch backend forced for LLM (nano-vllm incompatible)")
-        print("- GPU will be allocated on-demand during generation")
-        print("=" * 60)
+        quiet_print("=" * 60)
+        quiet_print("ZeroGPU environment detected")
+        quiet_print("- Using spaces package for GPU allocation")
+        quiet_print("- PyTorch backend forced for LLM (nano-vllm incompatible)")
+        quiet_print("- GPU will be allocated on-demand during generation")
+        quiet_print("=" * 60)
     
     # Get persistent storage path (auto-detect)
     persistent_storage_path = get_persistent_storage_path()
@@ -143,22 +144,22 @@ def main():
     # For ZeroGPU, we don't need CPU offload as GPU is allocated dynamically
     if IS_ZEROGPU:
         auto_offload = False
-        print("ZeroGPU: CPU offload disabled (GPU allocated on-demand)")
+        quiet_print("ZeroGPU: CPU offload disabled (GPU allocated on-demand)")
     else:
         auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < 16
     
     if not debug_ui and not IS_ZEROGPU:
         if auto_offload:
-            print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (< 16GB)")
-            print("Auto-enabling CPU offload to reduce GPU memory usage")
+            quiet_print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (< 16GB)")
+            quiet_print("Auto-enabling CPU offload to reduce GPU memory usage")
         elif gpu_memory_gb > 0:
-            print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (>= 16GB)")
-            print("CPU offload disabled by default")
+            quiet_print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (>= 16GB)")
+            quiet_print("CPU offload disabled by default")
         else:
-            print("No GPU detected, running on CPU")
+            quiet_print("No GPU detected, running on CPU")
     
     # Create handler instances
-    print("Creating handlers...")
+    quiet_print("Creating handlers...")
     dit_handler = AceStepHandler(persistent_storage_path=persistent_storage_path)
     llm_handler = LLMHandler(persistent_storage_path=persistent_storage_path)
     dataset_handler = DatasetHandler()
@@ -182,19 +183,19 @@ def main():
         backend = os.environ.get("SERVICE_MODE_BACKEND", "vllm")
     device = "auto"
     
-    print(f"Service mode configuration:")
-    print(f"  DiT model 1: {config_path}")
+    quiet_print(f"Service mode configuration:")
+    quiet_print(f"  DiT model 1: {config_path}")
     if config_path_2:
-        print(f"  DiT model 2: {config_path_2}")
-    print(f"  LM model: {lm_model_path}")
-    print(f"  Backend: {backend}")
-    print(f"  Offload to CPU: {auto_offload}")
-    print(f"  DEBUG_UI: {debug_ui}")
-    print(f"  ZeroGPU: {IS_ZEROGPU}")
+        quiet_print(f"  DiT model 2: {config_path_2}")
+    quiet_print(f"  LM model: {lm_model_path}")
+    quiet_print(f"  Backend: {backend}")
+    quiet_print(f"  Offload to CPU: {auto_offload}")
+    quiet_print(f"  DEBUG_UI: {debug_ui}")
+    quiet_print(f"  ZeroGPU: {IS_ZEROGPU}")
     
     # Determine flash attention availability
     use_flash_attention = dit_handler.is_flash_attention_available()
-    print(f"  Flash Attention: {use_flash_attention}")
+    quiet_print(f"  Flash Attention: {use_flash_attention}")
     
     # Initialize models (skip in DEBUG_UI mode)
     init_status = ""
@@ -205,67 +206,70 @@ def main():
         # In DEBUG_UI mode, skip all model initialization
         init_status = "⚠️ DEBUG_UI mode - models not loaded\nUI is functional but generation is disabled"
         enable_generate = False
-        print("Skipping model initialization (DEBUG_UI mode)")
+        quiet_print("Skipping model initialization (DEBUG_UI mode)")
     else:
         # Initialize primary DiT model
-        print(f"Initializing DiT model 1: {config_path}...")
-        init_status, enable_generate = dit_handler.initialize_service(
-            project_root=current_dir,
-            config_path=config_path,
-            device=device,
-            use_flash_attention=use_flash_attention,
-            compile_model=False,
-            offload_to_cpu=auto_offload,
-            offload_dit_to_cpu=False
-        )
-        
-        if not enable_generate:
-            print(f"Warning: DiT model 1 initialization issue: {init_status}", file=sys.stderr)
-        else:
-            print("DiT model 1 initialized successfully")
-        
-        # Initialize second DiT model if configured
-        if config_path_2:
-            print(f"Initializing DiT model 2: {config_path_2}...")
-            dit_handler_2 = AceStepHandler(persistent_storage_path=persistent_storage_path)
-            
-            # Share VAE, text_encoder, and silence_latent from the first handler to save memory
-            init_status_2, enable_generate_2 = dit_handler_2.initialize_service(
+        quiet_print(f"Initializing DiT model 1: {config_path}...")
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+            init_status, enable_generate = dit_handler.initialize_service(
                 project_root=current_dir,
-                config_path=config_path_2,
+                config_path=config_path,
                 device=device,
                 use_flash_attention=use_flash_attention,
                 compile_model=False,
                 offload_to_cpu=auto_offload,
-                offload_dit_to_cpu=False,
-                # Share components from first handler
-                shared_vae=dit_handler.vae,
-                shared_text_encoder=dit_handler.text_encoder,
-                shared_text_tokenizer=dit_handler.text_tokenizer,
-                shared_silence_latent=dit_handler.silence_latent,
+                offload_dit_to_cpu=False
             )
+        
+        if not enable_generate:
+            print(f"Warning: DiT model 1 initialization issue: {init_status}", file=sys.stderr)
+        else:
+            quiet_print("DiT model 1 initialized successfully")
+        
+        # Initialize second DiT model if configured
+        if config_path_2:
+            quiet_print(f"Initializing DiT model 2: {config_path_2}...")
+            dit_handler_2 = AceStepHandler(persistent_storage_path=persistent_storage_path)
+            
+            # Share VAE, text_encoder, and silence_latent from the first handler to save memory
+            with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+                init_status_2, enable_generate_2 = dit_handler_2.initialize_service(
+                    project_root=current_dir,
+                    config_path=config_path_2,
+                    device=device,
+                    use_flash_attention=use_flash_attention,
+                    compile_model=False,
+                    offload_to_cpu=auto_offload,
+                    offload_dit_to_cpu=False,
+                    # Share components from first handler
+                    shared_vae=dit_handler.vae,
+                    shared_text_encoder=dit_handler.text_encoder,
+                    shared_text_tokenizer=dit_handler.text_tokenizer,
+                    shared_silence_latent=dit_handler.silence_latent,
+                )
             
             if not enable_generate_2:
                 print(f"Warning: DiT model 2 initialization issue: {init_status_2}", file=sys.stderr)
                 init_status += f"\n⚠️ DiT model 2 failed: {init_status_2}"
             else:
-                print("DiT model 2 initialized successfully")
+                quiet_print("DiT model 2 initialized successfully")
                 init_status += f"\n✅ DiT model 2: {config_path_2}"
         
         # Initialize LM model
         checkpoint_dir = dit_handler._get_checkpoint_dir()
-        print(f"Initializing 5Hz LM: {lm_model_path}...")
-        lm_status, lm_success = llm_handler.initialize(
-            checkpoint_dir=checkpoint_dir,
-            lm_model_path=lm_model_path,
-            backend=backend,
-            device=device,
-            offload_to_cpu=auto_offload,
-            dtype=dit_handler.dtype
-        )
+        quiet_print(f"Initializing 5Hz LM: {lm_model_path}...")
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+            lm_status, lm_success = llm_handler.initialize(
+                checkpoint_dir=checkpoint_dir,
+                lm_model_path=lm_model_path,
+                backend=backend,
+                device=device,
+                offload_to_cpu=auto_offload,
+                dtype=dit_handler.dtype
+            )
         
         if lm_success:
-            print("5Hz LM initialized successfully")
+            quiet_print("5Hz LM initialized successfully")
             init_status += f"\n{lm_status}"
         else:
             print(f"Warning: 5Hz LM initialization failed: {lm_status}", file=sys.stderr)
@@ -301,10 +305,10 @@ def main():
         'debug_ui': debug_ui,
     }
     
-    print("Service initialization completed!")
+    quiet_print("Service initialization completed!")
     
     # Create Gradio interface with pre-initialized handlers
-    print("Creating Gradio interface...")
+    quiet_print("Creating Gradio interface...")
     demo = create_gradio_interface(
         dit_handler, 
         llm_handler, 
@@ -314,11 +318,11 @@ def main():
     )
     
     # Enable queue for multi-user support
-    print("Enabling queue for multi-user support...")
+    quiet_print("Enabling queue for multi-user support...")
     demo.queue(max_size=20)
     
     # Launch
-    print("Launching server on 0.0.0.0:7860...")
+    quiet_print("Launching server on 0.0.0.0:7860...")
     demo.launch(
         server_name="0.0.0.0",
         server_port=7860,

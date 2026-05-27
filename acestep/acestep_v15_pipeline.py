@@ -36,6 +36,7 @@ try:
     from .llm_inference import LLMHandler
     from .dataset_handler import DatasetHandler
     from .gradio_ui import create_gradio_interface
+    from .quiet_loading import quiet_mode, quiet_print, enable_quiet_mode, disable_quiet_mode
 except ImportError:
     # When executed as a script: `python acestep/acestep_v15_pipeline.py`
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +46,7 @@ except ImportError:
     from acestep.llm_inference import LLMHandler
     from acestep.dataset_handler import DatasetHandler
     from acestep.gradio_ui import create_gradio_interface
+    from acestep.quiet_loading import quiet_mode, quiet_print, enable_quiet_mode, disable_quiet_mode
 
 
 def create_demo(init_params=None, language='en'):
@@ -112,13 +114,13 @@ def main():
     auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < 16
     
     if auto_offload:
-        print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (< 16GB)")
-        print("Auto-enabling CPU offload to reduce GPU memory usage")
+        quiet_print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (< 16GB)")
+        quiet_print("Auto-enabling CPU offload to reduce GPU memory usage")
     elif gpu_memory_gb > 0:
-        print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (>= 16GB)")
-        print("CPU offload disabled by default")
+        quiet_print(f"Detected GPU memory: {gpu_memory_gb:.2f} GB (>= 16GB)")
+        quiet_print("CPU offload disabled by default")
     else:
-        print("No GPU detected, running on CPU")
+        quiet_print("No GPU detected, running on CPU")
     
     parser = argparse.ArgumentParser(description="Gradio Demo for ACE-Step V1.5")
     parser.add_argument("--port", type=int, default=7860, help="Port to run the gradio server on")
@@ -142,12 +144,21 @@ def main():
     parser.add_argument("--use_flash_attention", type=lambda x: x.lower() in ['true', '1', 'yes'], default=None, help="Use flash attention (default: auto-detect)")
     parser.add_argument("--offload_to_cpu", type=lambda x: x.lower() in ['true', '1', 'yes'], default=auto_offload, help=f"Offload models to CPU (default: {'True' if auto_offload else 'False'}, auto-detected based on GPU VRAM)")
     parser.add_argument("--offload_dit_to_cpu", type=lambda x: x.lower() in ['true', '1', 'yes'], default=False, help="Offload DiT to CPU (default: False)")
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress verbose output during model loading (default: True)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output during model loading (overrides --quiet)")
     
     args = parser.parse_args()
     
+    # By default, model loading is quiet unless --verbose is specified
+    # --quiet is the default behavior; --verbose enables detailed output
+    if args.verbose:
+        args.quiet = False
+    else:
+        args.quiet = True
+    
     # Service mode defaults (can be configured via .env file)
     if args.service_mode:
-        print("Service mode enabled - applying preset configurations...")
+        quiet_print("Service mode enabled - applying preset configurations...")
         # Force init_service in service mode
         args.init_service = True
         # Default DiT model for service mode (from env or fallback)
@@ -164,16 +175,16 @@ def main():
             )
         # Backend for service mode (from env or fallback to vllm)
         args.backend = os.environ.get("SERVICE_MODE_BACKEND", "vllm")
-        print(f"  DiT model: {args.config_path}")
-        print(f"  LM model: {args.lm_model_path}")
-        print(f"  Backend: {args.backend}")
+        quiet_print(f"  DiT model: {args.config_path}")
+        quiet_print(f"  LM model: {args.lm_model_path}")
+        quiet_print(f"  Backend: {args.backend}")
     
     try:
         init_params = None
         
         # If init_service is True, perform initialization before creating UI
         if args.init_service:
-            print("Initializing service from command line...")
+            quiet_print("Initializing service from command line...")
             
             # Create handler instances for initialization
             dit_handler = AceStepHandler()
@@ -184,7 +195,7 @@ def main():
                 available_models = dit_handler.get_available_acestep_v15_models()
                 if available_models:
                     args.config_path = "acestep-v15-turbo" if "acestep-v15-turbo" in available_models else available_models[0]
-                    print(f"Auto-selected config_path: {args.config_path}")
+                    quiet_print(f"Auto-selected config_path: {args.config_path}")
                 else:
                     print("Error: No available models found. Please specify --config_path", file=sys.stderr)
                     sys.exit(1)
@@ -199,22 +210,24 @@ def main():
                 use_flash_attention = dit_handler.is_flash_attention_available()
             
             # Initialize DiT handler
-            print(f"Initializing DiT model: {args.config_path} on {args.device}...")
-            init_status, enable_generate = dit_handler.initialize_service(
-                project_root=project_root,
-                config_path=args.config_path,
-                device=args.device,
-                use_flash_attention=use_flash_attention,
-                compile_model=False,
-                offload_to_cpu=args.offload_to_cpu,
-                offload_dit_to_cpu=args.offload_dit_to_cpu
-            )
+            quiet_print(f"Initializing DiT model: {args.config_path} on {args.device}...")
+            # Use quiet mode during model loading
+            with quiet_mode(suppress_stdout=args.quiet, suppress_logging=args.quiet, suppress_tqdm=args.quiet):
+                init_status, enable_generate = dit_handler.initialize_service(
+                    project_root=project_root,
+                    config_path=args.config_path,
+                    device=args.device,
+                    use_flash_attention=use_flash_attention,
+                    compile_model=False,
+                    offload_to_cpu=args.offload_to_cpu,
+                    offload_dit_to_cpu=args.offload_dit_to_cpu
+                )
             
             if not enable_generate:
                 print(f"Error initializing DiT model: {init_status}", file=sys.stderr)
                 sys.exit(1)
             
-            print(f"DiT model initialized successfully")
+            quiet_print(f"DiT model initialized successfully")
             
             # Initialize LM handler if requested
             lm_status = ""
@@ -224,25 +237,26 @@ def main():
                     available_lm_models = llm_handler.get_available_5hz_lm_models()
                     if available_lm_models:
                         args.lm_model_path = available_lm_models[0]
-                        print(f"Using default LM model: {args.lm_model_path}")
+                        quiet_print(f"Using default LM model: {args.lm_model_path}")
                     else:
                         print("Warning: No LM models available, skipping LM initialization", file=sys.stderr)
                         args.init_llm = False
                 
                 if args.init_llm and args.lm_model_path:
                     checkpoint_dir = os.path.join(project_root, "checkpoints")
-                    print(f"Initializing 5Hz LM: {args.lm_model_path} on {args.device}...")
-                    lm_status, lm_success = llm_handler.initialize(
-                        checkpoint_dir=checkpoint_dir,
-                        lm_model_path=args.lm_model_path,
-                        backend=args.backend,
-                        device=args.device,
-                        offload_to_cpu=args.offload_to_cpu,
-                        dtype=dit_handler.dtype
-                    )
+                    quiet_print(f"Initializing 5Hz LM: {args.lm_model_path} on {args.device}...")
+                    with quiet_mode(suppress_stdout=args.quiet, suppress_logging=args.quiet, suppress_tqdm=args.quiet):
+                        lm_status, lm_success = llm_handler.initialize(
+                            checkpoint_dir=checkpoint_dir,
+                            lm_model_path=args.lm_model_path,
+                            backend=args.backend,
+                            device=args.device,
+                            offload_to_cpu=args.offload_to_cpu,
+                            dtype=dit_handler.dtype
+                        )
                     
                     if lm_success:
-                        print(f"5Hz LM initialized successfully")
+                        quiet_print(f"5Hz LM initialized successfully")
                         init_status += f"\n{lm_status}"
                     else:
                         print(f"Warning: 5Hz LM initialization failed: {lm_status}", file=sys.stderr)
@@ -268,21 +282,21 @@ def main():
                 'language': args.language
             }
             
-            print("Service initialization completed successfully!")
+            quiet_print("Service initialization completed successfully!")
         
         # Create and launch demo
-        print(f"Creating Gradio interface with language: {args.language}...")
+        quiet_print(f"Creating Gradio interface with language: {args.language}...")
         demo = create_demo(init_params=init_params, language=args.language)
         
         # Enable queue for multi-user support
         # This ensures proper request queuing and prevents concurrent generation conflicts
-        print("Enabling queue for multi-user support...")
+        quiet_print("Enabling queue for multi-user support...")
         demo.queue(
             max_size=20,  # Maximum queue size (adjust based on your needs)
             status_update_rate="auto",  # Update rate for queue status
         )
         
-        print(f"Launching server on {args.server_name}:{args.port}...")
+        quiet_print(f"Launching server on {args.server_name}:{args.port}...")
         demo.launch(
             server_name=args.server_name,
             server_port=args.port,

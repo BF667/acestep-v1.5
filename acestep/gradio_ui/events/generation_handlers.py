@@ -420,12 +420,15 @@ def update_model_type_settings(config_path):
 
 def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, device, init_llm, lm_model_path, backend, use_flash_attention, offload_to_cpu, offload_dit_to_cpu):
     """Wrapper for service initialization, returns status, button state, accordion state, and model type settings"""
-    # Initialize DiT handler
-    status, enable = dit_handler.initialize_service(
-        checkpoint, config_path, device,
-        use_flash_attention=use_flash_attention, compile_model=False, 
-        offload_to_cpu=offload_to_cpu, offload_dit_to_cpu=offload_dit_to_cpu
-    )
+    from acestep.quiet_loading import quiet_mode
+    
+    # Initialize DiT handler (suppress verbose output)
+    with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+        status, enable = dit_handler.initialize_service(
+            checkpoint, config_path, device,
+            use_flash_attention=use_flash_attention, compile_model=False, 
+            offload_to_cpu=offload_to_cpu, offload_dit_to_cpu=offload_dit_to_cpu
+        )
     
     # Initialize LM handler if requested
     if init_llm:
@@ -435,14 +438,15 @@ def init_service_wrapper(dit_handler, llm_handler, checkpoint, config_path, devi
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
         checkpoint_dir = os.path.join(project_root, "checkpoints")
         
-        lm_status, lm_success = llm_handler.initialize(
-            checkpoint_dir=checkpoint_dir,
-            lm_model_path=lm_model_path,
-            backend=backend,
-            device=device,
-            offload_to_cpu=offload_to_cpu,
-            dtype=dit_handler.dtype
-        )
+        with quiet_mode(suppress_stdout=True, suppress_logging=True, suppress_tqdm=True):
+            lm_status, lm_success = llm_handler.initialize(
+                checkpoint_dir=checkpoint_dir,
+                lm_model_path=lm_model_path,
+                backend=backend,
+                device=device,
+                offload_to_cpu=offload_to_cpu,
+                dtype=dit_handler.dtype
+            )
         
         if lm_success:
             status += f"\n{lm_status}"
