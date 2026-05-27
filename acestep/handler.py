@@ -45,6 +45,50 @@ from acestep.dit_alignment_score import MusicStampsAligner, MusicLyricScorer
 warnings.filterwarnings("ignore")
 
 
+def _patch_vector_quantize_for_meta_tensors():
+    """Patch vector_quantize_pytorch to handle meta tensors during model initialization.
+
+    When transformers uses meta device initialization (low_cpu_mem_usage=True, the default),
+    ResidualFSQ.__init__ fails because it tries to call .item() on meta tensors
+    in its assertion: assert (levels_tensor > 1).all()
+
+    This patch wraps the assertion to skip it for meta tensors, since the levels
+    are always valid when loading from pretrained weights.
+    """
+    try:
+        from vector_quantize_pytorch.residual_fsq import ResidualFSQ
+        _original_fsq_init = ResidualFSQ.__init__
+
+        def _patched_fsq_init(self, *args, **kwargs):
+            # Temporarily patch torch.Tensor.item to handle meta tensors
+            # during ResidualFSQ initialization
+            _original_item = torch.Tensor.item
+
+            def _patched_item(self_tensor, *a, **kw):
+                if self_tensor.is_meta:
+                    # For boolean meta tensors (from .all() calls), return True
+                    # to pass the assertion. For other dtypes, return 0.
+                    if self_tensor.dtype == torch.bool:
+                        return True
+                    return 0
+                return _original_item(self_tensor, *a, **kw)
+
+            torch.Tensor.item = _patched_item
+            try:
+                _original_fsq_init(self, *args, **kwargs)
+            finally:
+                torch.Tensor.item = _original_item
+
+        ResidualFSQ.__init__ = _patched_fsq_init
+        logger.debug("[handler] Patched vector_quantize_pytorch for meta tensor compatibility")
+    except (ImportError, AttributeError) as e:
+        logger.debug(f"[handler] Could not patch vector_quantize_pytorch: {e}")
+
+
+# Apply the patch at module import time so it's ready before any model loading
+_patch_vector_quantize_for_meta_tensors()
+
+
 class AceStepHandler:
     """ACE-Step Business Logic Handler"""
 
@@ -478,7 +522,7 @@ class AceStepHandler:
                             acestep_v15_checkpoint_path,
                             trust_remote_code=True,
                             attn_implementation=attn_impl,
-                            dtype="bfloat16"
+                            torch_dtype=torch.bfloat16
                         )
                         attn_implementation = attn_impl
                         break
